@@ -1,0 +1,163 @@
+---
+title: 'FAQ'
+description: 'Answers to common questions about RepoHunt — authentication, API limits, scoring, AI summaries, and browser support.'
+keywords: ['faq', 'questions', 'groq', 'api key', 'rate limit', 'stale', 'offline', 'browser']
+---
+
+<AccordionGroup>
+
+  <Accordion title="Do I need a GitHub account?">
+    No. RepoHunt queries the GitHub Search API without authentication. No GitHub account, token, or OAuth flow is required.
+
+    The unauthenticated endpoint used is:
+
+    ```text
+    https://api.github.com/search/repositories?q=...&sort=stars&per_page=30&order=desc
+    ```
+
+    The only credential RepoHunt needs is a **Groq API key** to power AI summaries.
+  </Accordion>
+
+  <Accordion title="Is my Groq API key safe?">
+    Your key is stored exclusively in your browser's `localStorage` under the key `repohunt_groq_key`. It is never sent to any server other than the Groq API itself when generating summaries.
+
+    ```javascript
+    localStorage.setItem('repohunt_groq_key', val);
+    ```
+
+    RepoHunt has no backend. There is no database, no analytics service, and no third-party that receives your key. The key is transmitted only to `https://api.groq.com` when you trigger a search.
+
+    Groq API keys begin with `gsk_`.
+
+    <Warning>
+      Because the key lives in `localStorage`, anyone with access to your browser profile can read it via the browser's developer tools. Use a dedicated key for RepoHunt and rotate it if you share your machine.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Why do some repos not have AI summaries?">
+    AI summaries are generated only for the **top 8 repos** from each search — specifically the 8 highest-scoring repositories after sorting by Repo Score.
+
+    ```javascript
+    generateAISummaries(sorted.slice(0, 8), q);
+    ```
+
+    Repos ranked 9th and below display "analyzing..." permanently. This limit keeps Groq API usage and latency low while covering the results most users actually read.
+  </Accordion>
+
+  <Accordion title="What does a D score mean?">
+    A **D grade** means the repository scored below 40 out of 100. Common reasons include:
+
+    - Last pushed more than 24 months ago (0 recency points)
+    - Fewer than 10 stars (very low star score)
+    - No description, no topics, and no license set
+    - Few or no query keywords matched in name, description, or topics
+
+    A D score does not mean the repository is bad — it means it scores weakly on the signals RepoHunt can measure from the GitHub API. A niche utility with few stars, no description, and infrequent pushes can still be exactly what you need.
+
+    See the [scoring algorithm reference](/reference/scoring-algorithm) for the full breakdown.
+  </Accordion>
+
+  <Accordion title="Why is my search slow?">
+    The most common cause is the GitHub Search API rate limit. Unauthenticated requests are limited to **10 requests per minute**. If you search rapidly in succession you will hit this limit and requests will block or return an error until the window resets.
+
+    RepoHunt does not authenticate with GitHub, so it cannot exceed this limit. Waiting 60 seconds and trying again resolves most rate-limit errors.
+
+    <Note>
+      The Groq API call for AI summaries runs after the GitHub results are already displayed, so a slow summary does not delay the main results.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Can I search for private repos?">
+    No. RepoHunt uses the public GitHub Search API without authentication. The GitHub Search API only indexes **public repositories**. Private repos, internal org repos, and repos on GitHub Enterprise are not accessible.
+  </Accordion>
+
+  <Accordion title="Why am I seeing forks in results?">
+    By default the **Include forks** option is selected in the Filters panel. Forks are valid search results and are included unless you explicitly opt out.
+
+    To remove forks from results:
+    1. Click **Filters** to open the filter panel.
+    2. Change the **Exclude Forks** dropdown from **Include forks** to **No forks**.
+
+    This appends `fork:false` to the GitHub query string:
+
+    ```javascript
+    if (noForks) ghQ += ' fork:false';
+    ```
+
+    Note that even when forks are included, the scoring algorithm penalizes them by withholding the 5-point **not-a-fork** signal, so original repositories naturally rank higher.
+  </Accordion>
+
+  <Accordion title="How are AI summaries generated?">
+    RepoHunt sends the top 8 scored repositories to the Groq API and asks the model to write one sentence per repo describing what it's useful for and its standout quality.
+
+    **Model:** `llama-3.1-8b-instant`  
+    **Max tokens:** 600  
+    **Temperature:** 0.4
+
+    The prompt includes the repo's full name, description, star count, primary language, and how recently it was updated. The model is instructed to be specific and avoid generic filler phrases.
+
+    If the Groq API call fails for any reason, RepoHunt falls back to displaying the repository's own GitHub description in the AI summary panel.
+  </Accordion>
+
+  <Accordion title="Can I use RepoHunt without a Groq key?">
+    No. A Groq API key is required to unlock the search interface. The key modal is shown on first load and blocks interaction until a key is saved.
+
+    Get a free key at [console.groq.com](https://console.groq.com). The free tier is sufficient for normal RepoHunt usage.
+
+    <Tip>
+      Once saved, your key persists in `localStorage` across browser sessions. You only need to enter it once per browser profile.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="What does 'stale' mean on a repo card?">
+    The **stale** tag replaces the normal green last-updated tag when a repository has not received a push in more than **18 months**.
+
+    ```javascript
+    function isStale(d) {
+      return (Date.now() - new Date(d)) / (1000 * 60 * 60 * 24 * 30) > 18;
+    }
+    ```
+
+    A stale tag is a visual warning, not a filter. Stale repos still appear in results and receive whatever score their signals produce (0 recency points for repos older than 24 months, 3 pts for 12–24 months).
+  </Accordion>
+
+  <Accordion title="Why are there only 30 results maximum?">
+    RepoHunt fetches results using the GitHub Search API with `per_page=30`, which is the practical page size used by the app. GitHub's Search API returns results in pages and RepoHunt does not implement pagination, so the result set is always at most 30 repositories per search.
+
+    ```text
+    https://api.github.com/search/repositories?q=...&sort=stars&per_page=30&order=desc
+    ```
+
+    The 30 results returned are already pre-sorted by stars on GitHub's side, so RepoHunt's scoring then re-ranks this candidate set rather than the full GitHub index.
+  </Accordion>
+
+  <Accordion title="Can I contribute to RepoHunt?">
+    Yes. RepoHunt welcomes GitHub issues and pull requests. Because the entire application is a single HTML file (`repohunt2.html`), contributions are straightforward — there is no build step, no package manager, and no framework to learn.
+
+    Opening an issue is the best first step for bug reports, feature requests, or questions about the scoring algorithm.
+  </Accordion>
+
+  <Accordion title="Does RepoHunt work offline?">
+    No. RepoHunt requires network access for three external dependencies:
+
+    | Dependency | Used for | Required? |
+    |---|---|---|
+    | GitHub Search API | Fetching repository data | Always |
+    | Groq API | Generating AI summaries | Always (key required to unlock UI) |
+    | Google Fonts | Loading JetBrains Mono | Optional — falls back to system monospace |
+
+    There is no service worker, no cached data, and no offline mode.
+  </Accordion>
+
+  <Accordion title="What browsers are supported?">
+    RepoHunt works in any modern browser that supports:
+
+    - `fetch` API (for GitHub and Groq API calls)
+    - `localStorage` (for storing the Groq API key)
+    - CSS custom properties (`var(--accent)` etc.)
+    - `async` / `await` syntax
+
+    This covers all current versions of Chrome, Firefox, Safari, and Edge. Internet Explorer is not supported.
+  </Accordion>
+
+</AccordionGroup>

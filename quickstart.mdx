@@ -1,80 +1,148 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Get from zero to your first RepoHunt search in under 5 minutes."
 ---
 
-## Get started in three steps
+## Prerequisites
 
-Get your documentation site running locally and make your first customization.
+- A modern web browser (Chrome, Firefox, Safari, or Edge)
+- A free [Groq account](https://console.groq.com) for AI-powered summaries
+- No Node.js, npm, build tools, or backend required
 
-### Step 1: Set up your local environment
+## Get a free Groq API key
+
+RepoHunt uses Groq to generate one-sentence AI summaries for each repository. A Groq API key is required to unlock the search interface.
+
+<Steps>
+  <Step title="Create a Groq account">
+    Go to [console.groq.com](https://console.groq.com) and sign up for a free account.
+  </Step>
+  <Step title="Navigate to API Keys">
+    In the Groq console, click **API Keys** in the left sidebar.
+  </Step>
+  <Step title="Create a new key">
+    Click **Create API key**, give it a name (e.g. `repohunt`), and copy the generated key. It starts with `gsk_`.
+  </Step>
+</Steps>
+
+<Note>
+  Groq's free tier is sufficient for normal RepoHunt usage. Your key is stored only in your browser's `localStorage` under `repohunt_groq_key` — it is never sent to any server other than `api.groq.com`.
+</Note>
+
+## Run RepoHunt locally
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/Sujosh-Jana/RepoHunt.git
+    cd RepoHunt
+    ```
+  </Step>
+  <Step title="Open the app in your browser">
+    RepoHunt is a single HTML file — no build step needed. Open `repohunt2.html` directly:
+
+    <Tabs>
+      <Tab title="macOS">
+        ```bash
+        open repohunt2.html
+        ```
+      </Tab>
+      <Tab title="Linux">
+        ```bash
+        xdg-open repohunt2.html
+        ```
+      </Tab>
+      <Tab title="Windows">
+        ```bash
+        start repohunt2.html
+        ```
+      </Tab>
+      <Tab title="Any OS">
+        Double-click `repohunt2.html` in your file manager, or drag it into your browser.
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step title="Enter your Groq API key">
+    On first load, a modal prompts you for your Groq API key. Paste your `gsk_...` key into the input and click **Save →** (or press Enter).
+
+    The key is saved to `localStorage` and the modal closes. You won't need to enter it again in this browser.
+  </Step>
+</Steps>
+
+## Run your first search
+
+With the app open and your key saved, type a query in the search bar and press **Search →** or hit Enter.
+
+**Try these example queries:**
+
+| Query | What you'll find |
+|---|---|
+| `trading bot` | Algorithmic trading and backtesting tools |
+| `AI agent framework` | Autonomous agent orchestration libraries |
+| `Python web scraper` | HTML parsing and crawling libraries |
+| `Unity save system` | Serialization and persistence tools for Unity |
+| `realtime chat app` | WebSocket and messaging implementations |
+
+You can also click any of the quick-search chips below the search bar to pre-fill a query instantly.
+
+## Understand your results
+
+Each result card shows:
+
+| Element | Description |
+|---|---|
+| **Score badge** | A number (0–100) and letter grade (S/A/B/C/D) based on quality signals |
+| **Tags** | Programming language, star count, fork count, last-updated time |
+| **AI Analysis** | A one-sentence Groq-generated summary for the top 8 results |
+| **Topics** | GitHub topic tags from the repository |
+| **View on GitHub** | Direct link to the repository |
+
+### Score grades
+
+| Grade | Score | Meaning |
+|---|---|---|
+| **S** | ≥ 85 | Exceptional across all signals |
+| **A** | ≥ 70 | High quality, actively maintained |
+| **B** | ≥ 55 | Good quality with minor gaps |
+| **C** | ≥ 40 | Average — worth checking manually |
+| **D** | < 40 | Low signals — approach with caution |
+
+## Try the filters
+
+Click **Filters** to refine your results:
 
 <AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
+  <Accordion title="Language">
+    Filter to repositories written in a specific language: Python, JavaScript, TypeScript, Go, Rust, C#, Java, C++, Ruby, or Swift.
   </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
+  <Accordion title="Minimum Stars">
+    Set a minimum star threshold: 50+, 100+, 500+, 1k+, or 5k+. Useful for filtering out very new or niche projects.
+  </Accordion>
+  <Accordion title="Last Updated">
+    Limit results to repos pushed within the last 1, 3, 6, or 12 months. Helps surface actively maintained projects.
+  </Accordion>
+  <Accordion title="Exclude Forks">
+    Switch from **Include forks** to **No forks** to see only original repositories. This adds `fork:false` to the GitHub query.
   </Accordion>
 </AccordionGroup>
 
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+<Tip>
+  A good starting combination for quality results: set **Min Stars** to `100+`, **Last Updated** to `Last year`, and **Exclude Forks** to `No forks`.
+</Tip>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="How scoring works" icon="chart-bar" href="/features/scoring">
+    Understand the 8 signals that make up the Repo Score.
+  </Card>
+  <Card title="AI summaries" icon="sparkles" href="/features/ai-summaries">
+    Learn how Groq generates one-sentence repo analysis.
+  </Card>
+  <Card title="Groq API key setup" icon="key" href="/setup/groq-api-key">
+    Detailed key management and security guidance.
+  </Card>
+  <Card title="Scoring algorithm reference" icon="code" href="/reference/scoring-algorithm">
+    Full technical reference with formulas and examples.
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

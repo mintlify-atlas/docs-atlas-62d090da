@@ -1,0 +1,112 @@
+---
+title: 'Running locally'
+description: 'How to run RepoHunt on your own machine — no Node.js, no build step, just open the file.'
+keywords: ['local', 'install', 'clone', 'file', 'browser', 'http.server']
+---
+
+RepoHunt is a single HTML file with no dependencies, no build step, and no backend. Running it locally means cloning the repository and opening one file in your browser.
+
+## Prerequisites
+
+- A modern browser (Chrome, Firefox, Safari, or Edge)
+- Git (or the ability to download a ZIP from GitHub)
+
+There is no Node.js, no npm, and no package manager required.
+
+<Note>
+  RepoHunt loads the **JetBrains Mono** font from Google Fonts. If you are offline, the font will not load and the browser will fall back to its default monospace font. All functionality works fine without it.
+</Note>
+
+## Clone the repository
+
+```bash
+git clone https://github.com/Sujosh-Jana/RepoHunt.git
+```
+
+The only file you need is `repohunt2.html`. Everything — HTML, CSS, and JavaScript — is bundled in that single file.
+
+<Tip>
+  If you do not want to use Git, download the ZIP from GitHub (**Code → Download ZIP**) and extract it. Then open `repohunt2.html` directly.
+</Tip>
+
+## Open in your browser
+
+RepoHunt works with the `file://` protocol. You can open the file directly without running any server.
+
+<Tabs>
+  <Tab title="macOS">
+    ```bash
+    open repohunt2.html
+    ```
+  </Tab>
+  <Tab title="Linux">
+    ```bash
+    xdg-open repohunt2.html
+    ```
+  </Tab>
+  <Tab title="Windows">
+    ```powershell
+    start repohunt2.html
+    ```
+  </Tab>
+  <Tab title="Any OS">
+    Double-click `repohunt2.html` in your file manager, or use **File → Open** from within your browser.
+  </Tab>
+</Tabs>
+
+## Alternative: local dev server
+
+If you prefer to serve the file over `http://` (for example, to avoid any browser restrictions on `file://` URLs), you can use a simple local server.
+
+<CodeGroup>
+
+```bash Python
+# Python 3 — serves the current directory on port 8000
+python -m http.server 8000
+```
+
+```bash npx
+# Node.js — no global install needed
+npx serve .
+```
+
+</CodeGroup>
+
+Then open `http://localhost:8000/repohunt2.html` in your browser.
+
+<Info>
+  If you use the Python server approach, `localStorage` is scoped to `http://localhost:8000`. Keys stored there are separate from any keys stored when opening the file directly via `file://`.
+</Info>
+
+## What you see on first load
+
+The first time you open RepoHunt (or any time no Groq key is found in `localStorage`), a modal appears in the center of the screen asking for your Groq API key. You must enter a valid key before you can run a search.
+
+See [Groq API key](/setup/groq-api-key) for instructions on getting a free key and entering it.
+
+## GitHub API rate limiting
+
+RepoHunt queries the GitHub Search API without authentication. The unauthenticated rate limit is **10 requests per minute**.
+
+If you search rapidly and hit the limit, you will see an error message beneath the search bar. Wait approximately one minute before searching again.
+
+<Warning>
+  The GitHub API rate limit is per IP address. If you are on a shared network (office, university Wi-Fi), other users on the same IP may affect your available quota.
+</Warning>
+
+## Browser compatibility
+
+RepoHunt uses standard browser APIs with no polyfills:
+
+| Feature | Used for |
+|---|---|
+| `fetch` | GitHub and Groq API requests |
+| `localStorage` | Persisting the Groq API key |
+| CSS custom properties | Theming |
+| `async`/`await` | Async search and AI summary logic |
+
+All modern browsers (Chrome 80+, Firefox 75+, Safari 13.1+, Edge 80+) support these features without any configuration.
+
+<Note>
+  Internet Explorer is not supported. The `file://` origin restrictions in some Chromium-based browsers may occasionally affect `localStorage` behavior; if you encounter issues, use the local dev server option instead.
+</Note>

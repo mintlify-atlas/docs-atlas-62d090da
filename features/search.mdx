@@ -1,0 +1,113 @@
+---
+title: 'Search'
+description: 'How to find repositories with RepoHunt — search bar, quick chips, query construction, and sort modes.'
+keywords: ['search', 'github', 'query', 'quick search', 'sort']
+---
+
+RepoHunt passes your query directly to the GitHub Search API and layers its own scoring on top of the results. Up to **30 repositories** are returned per search and rendered as ranked cards.
+
+## Search bar
+
+Type any phrase into the search bar and press **Search →** or hit `Enter`. Your input is sent as-is to the GitHub API, with filter parameters appended automatically based on your active filter selections.
+
+```text
+$ search repos — trading bot, Unity save system, Python scraper...
+```
+
+<Note>
+RepoHunt requires a Groq API key before the first search. The key is stored only in `localStorage` under the key `repohunt_groq_key` and is never transmitted anywhere other than the Groq API.
+</Note>
+
+## Quick search chips
+
+Eight pre-built suggestion chips appear below the search bar. Clicking any chip sets the search input to the full query string and immediately triggers a search — equivalent to typing that phrase and pressing Search.
+
+| Chip label | Full query sent to GitHub |
+|---|---|
+| trading bot | `trading bot` |
+| admin dashboard | `admin dashboard HTML` |
+| Python backtesting | `Python backtesting` |
+| Unity save system | `Unity save system` |
+| AI agent | `open source AI agent` |
+| web scraper | `web scraper Python` |
+| realtime chat | `realtime chat app` |
+| markdown editor | `markdown editor` |
+
+The `quickSearch(q)` function sets the input value and calls `search()`, so all active filters are respected exactly as they would be for a manual search.
+
+## How queries are constructed
+
+Before hitting the GitHub API, RepoHunt appends filter qualifiers to your raw query string:
+
+```text
+<your query> [language:<lang>] [fork:false] [pushed:><ISO date>] [stars:>=<N>]
+```
+
+The final URL looks like:
+
+```text
+https://api.github.com/search/repositories?q=<encoded query>&sort=stars&per_page=30&order=desc
+```
+
+<Steps>
+  <Step title="Start with your query">
+    The raw text from the search input is used as the base query.
+  </Step>
+  <Step title="Append language filter">
+    If a language is selected, `language:Python` (or whichever language) is appended.
+  </Step>
+  <Step title="Append fork filter">
+    If "No forks" is selected, `fork:false` is appended.
+  </Step>
+  <Step title="Append date filter">
+    If a Last Updated window is chosen, the cutoff date is calculated by subtracting N months from today, then `pushed:>YYYY-MM-DD` is appended.
+  </Step>
+  <Step title="Append star filter">
+    If a minimum star count is set, `stars:>=N` is appended.
+  </Step>
+  <Step title="Fetch and score">
+    The constructed query is fetched. Each returned repo is scored with `scoreRepo()` and stored. AI summaries are then generated for the top 8 results.
+  </Step>
+</Steps>
+
+## Results display
+
+Results appear as cards, each showing:
+
+- Repository owner and name (linked to GitHub)
+- Language, star count, fork count, and last-push timestamp tags
+- A **top pick** badge on the first result
+- A **hot** badge on repos scoring 80 or above
+- A stale indicator when `pushed_at` is more than 18 months ago
+- The repository description
+- An AI summary panel (pulsing while loading, solid green dot when done)
+- Up to 5 topic tags
+- A score badge showing the numeric score and letter grade
+
+## Sort modes
+
+After results load, three sort buttons appear in the stats bar. Switching sort re-renders the cards immediately without a new API call.
+
+| Mode | Sort key | Description |
+|---|---|---|
+| **Score** | `_score` (default) | Ranks by RepoHunt's composite 0–100 score. Surfaces the most well-rounded repositories. |
+| **Stars** | `stargazers_count` | Orders by raw GitHub star count, highest first. |
+| **Recent** | `pushed_at` | Orders by last push date, most recent first. Best for finding actively maintained projects. |
+
+<Note>
+AI summaries are always generated for the **top 8 repos by Score**, regardless of which sort mode is active when results load.
+</Note>
+
+## Tips for effective queries
+
+<Tip>
+Include the language in your query when it matters — for example `"web scraper Python"` rather than just `"web scraper"`. This produces more relevant relevance scores even before the language filter is applied, because the scoring system rewards keyword matches in the repo name, description, and topics.
+</Tip>
+
+<Tip>
+Combine a specific use-case phrase with a quality keyword. Queries like `"realtime chat app production"` or `"trading bot backtesting"` yield tighter topic matches and higher relevance scores.
+</Tip>
+
+<Tip>
+Use the **Recent** sort after searching to quickly check whether a niche has active maintainers. If the top results show pushes from 1–2 years ago, the ecosystem may be dormant.
+</Tip>

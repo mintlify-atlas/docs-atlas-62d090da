@@ -1,0 +1,113 @@
+---
+title: 'AI summaries'
+description: 'How RepoHunt uses the Groq API and Llama 3 to generate one-sentence expert takes for the top search results.'
+keywords: ['AI', 'Groq', 'summary', 'llama', 'LLM', 'analysis']
+---
+
+After every search, RepoHunt sends the top results to the [Groq API](https://console.groq.com) and generates a one-sentence expert take for each repository. Summaries appear on the card under the label **AI Analysis**.
+
+## What it does
+
+The AI summary answers two questions in a single sentence (max 20 words):
+
+1. **What is this repo useful for?** — the primary use-case
+2. **What is its standout quality?** — e.g. "most production-ready", "best for beginners", "underrated gem", "most actively maintained"
+
+This gives you a fast, developer-focused read on each result without needing to visit the GitHub page.
+
+## Which repos get summaries
+
+Summaries are generated for the **top 8 repositories** ranked by the composite Score, regardless of which sort mode is active in the UI. The selection happens immediately after results load:
+
+```javascript
+generateAISummaries(sorted.slice(0, 8), q);
+```
+
+<Note>
+If fewer than 8 results are returned, summaries are generated for all of them.
+</Note>
+
+## Model and parameters
+
+| Setting | Value |
+|---|---|
+| Model | `llama-3.1-8b-instant` |
+| Max tokens | 600 |
+| Temperature | 0.4 |
+| API endpoint | `https://api.groq.com/openai/v1/chat/completions` |
+
+A low temperature (0.4) keeps summaries specific and factual rather than generic or embellished.
+
+## Prompt structure
+
+All 8 repos are sent in a single API call. The prompt template is:
+
+```text
+You are a senior developer helping another dev discover great GitHub repos.
+User searched for: "<query>"
+Repos:
+1. <owner>/<name> — <description> | Stars: <N> | Lang: <language> | Updated: <time ago>
+2. ...
+...
+
+For EACH repo (1-<count>), write ONE sentence (max 20 words): what it's useful for +
+its standout quality (e.g. "most production-ready", "best for beginners",
+"underrated gem", "most actively maintained").
+Format: just number and sentence, one per line. Be specific. No generic filler.
+```
+
+Each repo entry includes the full name, description (or `no description`), star count, primary language, and a relative last-updated label (e.g. `3mo ago`).
+
+## Summary display states
+
+Each card has an **AI Analysis** panel that reflects the current state:
+
+| State | Indicator | Meaning |
+|---|---|---|
+| Loading | Pulsing purple dot | Request sent, waiting for Groq response |
+| Loaded | Solid green dot | Summary received and rendered |
+| Error fallback | Solid green dot | Groq call failed; repo's own description is shown instead |
+
+The pulsing animation is a CSS `pulse` keyframe on the `::before` pseudo-element of `.ai-label`. Once a summary arrives (or fallback is applied), the card receives the `.loaded` class, which stops the animation and switches the dot to green.
+
+## Error handling
+
+If the Groq API call fails for any reason (invalid key, rate limit, network error), RepoHunt falls back gracefully:
+
+```javascript
+// On Groq error, fall back to the repo's own GitHub description
+repos.forEach(r => {
+  const el = document.getElementById('ai-' + r.id);
+  if (el) {
+    el.querySelector('.ai-text').textContent = r.description || 'no summary available.';
+    el.classList.add('loaded');
+  }
+});
+```
+
+<Warning>
+If your Groq key is missing, expired, or rate-limited, every card will display the repo's GitHub description instead of an AI-generated summary. The rest of RepoHunt (search, scoring, filters) continues to work normally.
+</Warning>
+
+## API key requirements
+
+RepoHunt requires a Groq API key to generate summaries. A free key is available at [console.groq.com](https://console.groq.com).
+
+<Steps>
+  <Step title="Get a free Groq key">
+    Sign up at [console.groq.com](https://console.groq.com) and create an API key.
+  </Step>
+  <Step title="Enter the key on first launch">
+    A modal prompts for the key the first time you open RepoHunt. Paste your key (starts with `gsk_`) and click **Save →** or press `Enter`.
+  </Step>
+  <Step title="Key is stored locally">
+    The key is written to `localStorage` under the key `repohunt_groq_key`. It is never sent anywhere except directly to `api.groq.com`.
+  </Step>
+  <Step title="Change the key any time">
+    Click **⚙ change api key** above the filter toggle to re-open the key modal.
+  </Step>
+</Steps>
+
+<Note>
+The key modal can be dismissed by clicking outside it — but only if a key is already saved. If no key is stored, you must enter one before searching.
+</Note>

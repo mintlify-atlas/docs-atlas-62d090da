@@ -1,0 +1,57 @@
+---
+title: "Introduction"
+description: "What RepoHunt is, why it exists, and how it works."
+---
+
+## What is RepoHunt?
+
+RepoHunt is a smarter GitHub repository discovery tool. You type what you're looking for — `trading bot`, `Unity save system`, `Python web scraper` — and RepoHunt returns the top open-source repositories ranked by quality, relevance, and activity.
+
+Unlike a raw GitHub search, RepoHunt applies a multi-signal scoring algorithm to every result and generates a one-sentence AI summary for each repo so you can make faster, more informed decisions about which projects are worth exploring.
+
+## The problem it solves
+
+GitHub's built-in search is great for finding repositories by name or exact keyword, but it struggles with niche discovery. It tends to:
+
+- Surface the most popular results regardless of quality or relevance
+- Bury actively maintained but lesser-known projects
+- Return forks, abandoned projects, and repositories with no documentation
+
+RepoHunt solves this by combining **eight ranking signals** into a single Repo Score (0–100) and using AI to explain what makes each repository stand out.
+
+## How it works
+
+<Steps>
+  <Step title="Query the GitHub API">
+    RepoHunt sends your search query (with any active filters) to the GitHub Search API and retrieves up to 30 repositories sorted by stars.
+  </Step>
+  <Step title="Score every repository">
+    Each repository is scored on eight signals: stars, recent activity, description quality, topic tags, fork status, community activity (open issues), license presence, and query relevance. Scores are normalized to a 0–100 range.
+  </Step>
+  <Step title="Rank and display results">
+    Repositories are sorted by Repo Score (or Stars or Recency, if you prefer) and rendered as cards with metadata tags.
+  </Step>
+  <Step title="Generate AI summaries">
+    The top 8 results are sent to Groq's `llama-3.1-8b-instant` model, which writes a concise, expert one-sentence summary for each repo — describing what it's useful for and its standout quality.
+  </Step>
+</Steps>
+
+## Tech stack
+
+RepoHunt is intentionally simple. There is no backend, no build step, and no framework.
+
+| Layer | Technology |
+|---|---|
+| Frontend | HTML, CSS, JavaScript |
+| Font | JetBrains Mono |
+| GitHub data | GitHub Search API (unauthenticated) |
+| AI summaries | Groq API (`llama-3.1-8b-instant`) |
+| Key storage | Browser `localStorage` |
+
+## Privacy
+
+Your Groq API key is stored only in your browser's `localStorage`. It is never transmitted to any server other than `api.groq.com` when generating summaries. No usage data, search queries, or personal information is collected.
+
+<Info>
+  Because RepoHunt uses the unauthenticated GitHub Search API, it is subject to GitHub's rate limits (10 requests per minute for unauthenticated clients). If you hit rate limits, wait a minute before searching again.
+</Info>

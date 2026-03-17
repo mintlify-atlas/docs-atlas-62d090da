@@ -1,0 +1,141 @@
+---
+title: 'Repo scoring'
+description: 'How RepoHunt scores repositories on a 0–100 scale using 8 signals, and what the S/A/B/C/D letter grades mean.'
+keywords: ['scoring', 'rank', 'grade', 'score', 'hidden gem', 'relevance']
+---
+
+Every repository returned by a search is assigned a numeric **Repo Score** between 0 and 100. The score combines eight independent signals, each rewarding a different quality dimension. A letter grade (S through D) is derived from the final score and displayed on the card badge.
+
+## Score signals
+
+The `scoreRepo(repo, query)` function computes the score as the sum of all signal contributions, capped at 100.
+
+### 1. Stars (up to 40 pts)
+
+Star count is the strongest single signal, but gains are logarithmic to prevent mega-repos from completely dominating lower-star alternatives.
+
+```text
+stars_score = min(40, log10(stars + 1) × 14)
+```
+
+| Stars | Approximate points |
+|---|---|
+| 0 | 0 |
+| 10 | ~14 |
+| 100 | ~28 |
+| 1,000 | ~42 → capped at 40 |
+| 10,000+ | 40 (capped) |
+
+### 2. Recent activity (up to 25 pts)
+
+The `pushed_at` field determines how recently the repository received a commit.
+
+| Last push | Points |
+|---|---|
+| Less than 1 month ago | 25 |
+| 1–3 months ago | 20 |
+| 3–6 months ago | 15 |
+| 6–12 months ago | 8 |
+| 12–24 months ago | 3 |
+| More than 24 months ago | 0 |
+
+### 3. Description (up to 5 pts)
+
+Repos with a description longer than 20 characters receive **+5 pts**. Undocumented repos score zero here.
+
+### 4. Topics (up to 5 pts)
+
+Any repository with at least one GitHub topic tag receives **+5 pts**. Topics are also used in query relevance scoring (see below).
+
+### 5. Not a fork (up to 5 pts)
+
+Original repositories receive **+5 pts**. Forks score zero here, which discourages surfacing derivative copies ahead of the source.
+
+### 6. Open issues (up to 5 pts)
+
+A moderate number of open issues signals an active community. The formula rewards engagement without penalising repos that have accumulated a large backlog.
+
+```text
+issues_score = min(5, open_issues_count / 20)   [only when 0 < issues < 500]
+```
+
+| Open issues | Points |
+|---|---|
+| 0 | 0 |
+| 20 | 1 |
+| 100 | 5 (max) |
+| 500+ | 0 (excluded) |
+
+### 7. License (up to 5 pts)
+
+Repositories with any license set receive **+5 pts**. An open license is a basic requirement for safe open-source use.
+
+### 8. Query relevance (up to 20 pts)
+
+Each word from your search query is checked against the repository's name, description, and topics (all lowercased). Each matching word adds **5 pts**, capped at 20 pts total (i.e., four or more matching words reaches the maximum).
+
+```text
+relevance_score = min(20, matched_keyword_count × 5)
+```
+
+<Note>
+Relevance is calculated against your raw query text, not the full GitHub query string with filter qualifiers. Longer, more specific queries benefit more from this signal.
+</Note>
+
+## Hidden gem bonus (+5 pts)
+
+A repository receives a **+5 pt hidden gem bonus** when both conditions are true:
+
+- **Stars < 1,000** — not yet widely discovered
+- **Last pushed < 6 months ago** — still actively developed
+
+This bonus helps surface high-quality under-the-radar projects that would otherwise be buried by established, star-heavy alternatives.
+
+## Score summary table
+
+| Signal | Max points | Formula / condition |
+|---|---|---|
+| Stars | 40 | `min(40, log10(stars+1) × 14)` |
+| Recent activity | 25 | Tiered by months since last push |
+| Description | 5 | Description length > 20 chars |
+| Topics | 5 | At least 1 topic tag |
+| Not a fork | 5 | `repo.fork === false` |
+| Open issues | 5 | `min(5, issues/20)` for 0 < issues < 500 |
+| License | 5 | License field present |
+| Query relevance | 20 | `min(20, keyword_matches × 5)` |
+| Hidden gem bonus | 5 | stars < 1000 AND pushed < 6 months ago |
+| **Total** | **100** | Capped at 100 |
+
+## Letter grades
+
+The numeric score maps to a letter grade displayed on each card badge.
+
+| Grade | Score range | Meaning |
+|---|---|---|
+| **S** | ≥ 85 | Exceptional — high stars, active maintenance, strong relevance, and well-documented |
+| **A** | 70–84 | Very good — strong across most signals with only minor gaps |
+| **B** | 55–69 | Solid — useful repo but may be older, lower-star, or loosely related to your query |
+| **C** | 40–54 | Marginal — some signals present but notable weaknesses (stale, undocumented, or low relevance) |
+| **D** | < 40 | Weak — largely inactive, undocumented, or a poor query match |
+
+## Score badge colors
+
+Each grade has a distinct color on the card badge for quick visual scanning.
+
+| Grade | Color |
+|---|---|
+| S | Purple |
+| A | Green |
+| B | Cyan |
+| C | Amber |
+| D | Red |
+
+The badge displays the letter grade on top and the raw numeric score beneath it.
+
+<Tip>
+Use the **Score** sort (default) to see the most balanced ranking. Switch to **Stars** when you specifically want battle-tested libraries. Switch to **Recent** when you need something actively maintained.
+</Tip>
+
+<Note>
+A repository can score a maximum of 110 points before the final `min(100, score)` cap — for example, a 10k-star, just-pushed, original repo with description, topics, license, perfect relevance, and no hidden gem. The cap ensures the 0–100 scale stays consistent.
+</Note>

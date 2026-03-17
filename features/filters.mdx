@@ -1,0 +1,125 @@
+---
+title: 'Filters and sorting'
+description: 'All available filters in RepoHunt — language, stars, last updated, forks — and how they are applied to the GitHub query.'
+keywords: ['filters', 'language', 'stars', 'forks', 'sort', 'last updated']
+---
+
+RepoHunt exposes four filters and three sort modes. Filters are appended directly to the GitHub Search API query before it is sent; sorting happens client-side and re-renders cards without a new API call.
+
+Click **Filters** below the quick-search chips to expand the filter panel.
+
+## Language filter
+
+Restricts results to repositories whose primary language matches the selected value. When a language is selected, `language:<value>` is appended to the GitHub query.
+
+**Available languages:**
+
+| Value | GitHub qualifier appended |
+|---|---|
+| Any language *(default)* | *(nothing appended)* |
+| Python | `language:Python` |
+| JavaScript | `language:JavaScript` |
+| TypeScript | `language:TypeScript` |
+| Go | `language:Go` |
+| Rust | `language:Rust` |
+| C# | `language:C#` |
+| Java | `language:Java` |
+| C++ | `language:C++` |
+| Ruby | `language:Ruby` |
+| Swift | `language:Swift` |
+
+## Minimum stars filter
+
+Filters out repositories with fewer stars than the selected threshold. The threshold is applied at two levels: as a `stars:>=N` qualifier in the GitHub query, and again client-side on the returned results.
+
+| Option | GitHub qualifier appended |
+|---|---|
+| Any *(default)* | *(nothing appended)* |
+| 50+ | `stars:>=50` |
+| 100+ | `stars:>=100` |
+| 500+ | `stars:>=500` |
+| 1k+ | `stars:>=1000` |
+| 5k+ | `stars:>=5000` |
+
+<Note>
+Because GitHub returns results sorted by stars before RepoHunt applies its own scoring, using a high star floor (1k+, 5k+) also removes hidden-gem candidates. Use **Any** or **50+** when exploring niche topics.
+</Note>
+
+## Last updated filter
+
+Limits results to repositories that have received a push commit within the selected time window. RepoHunt calculates the cutoff date at search time by subtracting N months from today's date, then appends `pushed:>YYYY-MM-DD`.
+
+| Option | Qualifier appended | How the date is calculated |
+|---|---|---|
+| Any time *(default)* | *(nothing appended)* | — |
+| Last month | `pushed:>YYYY-MM-DD` | `today − 1 month` |
+| Last 3 months | `pushed:>YYYY-MM-DD` | `today − 3 months` |
+| Last 6 months | `pushed:>YYYY-MM-DD` | `today − 6 months` |
+| Last year | `pushed:>YYYY-MM-DD` | `today − 12 months` |
+
+```javascript
+// Date calculation at search time
+const d = new Date();
+d.setMonth(d.getMonth() - parseInt(updatedMonths));
+ghQ += ` pushed:>${d.toISOString().split('T')[0]}`;
+```
+
+<Note>
+The **stale** indicator on result cards uses a separate, independent threshold of 18 months. A repo can pass the "Last year" filter and still show a stale tag if it was last pushed 13–18 months ago.
+</Note>
+
+## Exclude forks filter
+
+Controls whether forked repositories appear in results.
+
+| Option | GitHub qualifier appended |
+|---|---|
+| Include forks *(default)* | *(nothing appended)* |
+| No forks | `fork:false` |
+
+Choosing **No forks** also means forked repos cannot earn the **Not a fork** bonus (+5 pts) in scoring — but since they are excluded from results entirely, this only matters when **Include forks** is active.
+
+## How filters combine
+
+All active filter qualifiers are concatenated in this order:
+
+```text
+<raw query> [language:<lang>] [fork:false] [pushed:><date>] [stars:>=<N>]
+```
+
+For example, searching `"realtime chat"` with TypeScript, no forks, last 3 months, and 100+ stars produces:
+
+```text
+realtime chat language:TypeScript fork:false pushed:>2025-12-17 stars:>=100
+```
+
+## Sort modes
+
+Sort controls appear in the stats bar after results load. Changing sort re-orders the existing result set without calling the GitHub API again.
+
+| Mode | Default | How it sorts |
+|---|---|---|
+| **Score** | Yes | Descending by `_score` (RepoHunt's composite 0–100 score) |
+| **Stars** | No | Descending by `stargazers_count` |
+| **Recent** | No | Descending by `pushed_at` date |
+
+<Note>
+AI summaries are always generated for the top 8 by **Score**, even if you are viewing results in a different sort order.
+</Note>
+
+## Tips for combining filters
+
+<AccordionGroup>
+  <Accordion title="Finding actively maintained niche tools">
+    Set **Last updated** to "Last 3 months" and leave stars at **Any**. This surfaces projects with real activity regardless of fame. Combine with the **Recent** sort to rank by freshness.
+  </Accordion>
+  <Accordion title="Finding production-ready libraries">
+    Set **Min stars** to **1k+** or **5k+** and **Language** to your target language. Use the default **Score** sort so that well-documented, licensed repos rise above pure star counts.
+  </Accordion>
+  <Accordion title="Exploring a new language ecosystem">
+    Set **Language** to the language you are evaluating and leave all other filters on their defaults. The **Score** sort will surface a balanced mix of mature and recently-active repositories.
+  </Accordion>
+  <Accordion title="Avoiding dead repos">
+    Set **Last updated** to "Last year" as a baseline minimum. The scoring system already penalises stale repos (0 pts for activity if last push > 24 months), but the filter removes them entirely rather than just ranking them lower.
+  </Accordion>
+</AccordionGroup>

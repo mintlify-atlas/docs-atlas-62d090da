@@ -1,0 +1,250 @@
+---
+title: 'Scoring algorithm'
+description: 'Complete technical reference for the scoreRepo() function — every signal, formula, worked example, and grade threshold explained.'
+keywords: ['scoring', 'algorithm', 'scoreRepo', 'formula', 'signals', 'grade', 'rank']
+---
+
+The `scoreRepo(repo, query)` function assigns every repository a numeric score between 0 and 100. The score is the sum of up to nine independent signals, rounded to the nearest integer and capped at 100 before being returned.
+
+## Formula overview
+
+```text
+score = stars_score
+      + recency_score
+      + description_score
+      + topics_score
+      + not_fork_score
+      + issues_score
+      + license_score
+      + hidden_gem_bonus
+      + relevance_score
+
+final = Math.round(Math.min(100, score))
+```
+
+Each signal is independent. There are no multipliers or cross-signal dependencies, with the single exception of the hidden gem bonus, which requires two conditions to be met simultaneously.
+
+## Signal reference
+
+| Signal | Max pts | Formula / condition | Notes |
+|---|---|---|---|
+| Stars | 40 | `min(40, log10(stars + 1) × 14)` | Logarithmic — diminishing returns above ~1 k stars |
+| Recency | 25 | Tiered by months since `pushed_at` | See recency table below |
+| Description | 5 | `description.length > 20` | Full 5 pts or 0 — no partial credit |
+| Topics | 5 | `topics.length > 0` | Full 5 pts or 0 — one topic is enough |
+| Not a fork | 5 | `repo.fork === false` | Forks score 0 on this signal |
+| Open issues | 5 | `min(5, issues / 20)` for `0 < issues < 500` | 0 issues and 500+ issues both score 0 |
+| License | 5 | License field present | Any license qualifies |
+| Hidden gem bonus | 5 | `stars < 1000 AND monthsAgo < 6` | Both conditions must be true |
+| Query relevance | 20 | `min(20, matchedWords × 5)` | Matched against name + description + topics |
+| **Total (capped)** | **100** | `Math.round(Math.min(100, sum))` | Raw sum can exceed 100 before the cap |
+
+## Stars signal (up to 40 pts)
+
+Star count is the heaviest single signal, but the logarithmic formula prevents large repositories from completely crowding out lower-star alternatives.
+
+```text
+stars_score = min(40, log10(stars + 1) × 14)
+```
+
+The `+1` inside the logarithm ensures a zero-star repo does not produce `−Infinity`.
+
+### Worked examples
+
+| Stars | log10(stars + 1) | × 14 | Capped score |
+|---|---|---|---|
+| 0 | 0.000 | 0.0 | **0 pts** |
+| 100 | 2.004 | 28.1 | **28 pts** |
+| 1,000 | 3.000 | 42.0 → capped | **40 pts** |
+| 10,000 | 4.000 | 56.0 → capped | **40 pts** |
+
+All repositories with 1,000 or more stars receive the full 40 points. The extra resolution the logarithm provides matters most in the 0–999 star range.
+
+<Note>
+A repo with 100 stars scores 28 pts here — 70 % of the maximum — which means a well-documented, recently-pushed 100-star repo can still outrank a dormant 10 k-star one.
+</Note>
+
+## Recency signal (up to 25 pts)
+
+The age of the last push is measured in approximate months:
+
+```text
+monthsAgo = (Date.now() - new Date(repo.pushed_at)) / (1000 × 60 × 60 × 24 × 30)
+```
+
+That value is then bucketed into five tiers:
+
+| Last push | Points awarded |
+|---|---|
+| Less than 1 month ago | 25 |
+| 1–3 months ago | 20 |
+| 3–6 months ago | 15 |
+| 6–12 months ago | 8 |
+| 12–24 months ago | 3 |
+| More than 24 months ago | 0 |
+
+Recency is the second-largest signal, intentionally weighted to surface actively maintained projects.
+
+## Description signal (up to 5 pts)
+
+The repository must have a `description` field set **and** that description must be longer than 20 characters to earn 5 pts. An absent or very short description scores 0.
+
+## Topics signal (up to 5 pts)
+
+If `repo.topics` is a non-empty array, the repo earns 5 pts. A single topic is sufficient. Topics also feed into the relevance signal.
+
+## Not-a-fork signal (up to 5 pts)
+
+Original repositories (`repo.fork === false`) earn 5 pts. Forked repositories score 0 on this signal. Combined with the optional **Exclude Forks** filter, this discourages derivative copies from surfacing ahead of source projects.
+
+## Open issues signal (up to 5 pts)
+
+A moderate open-issue count signals an engaged community. The formula is:
+
+```text
+issues_score = min(5, open_issues_count / 20)   [only when 0 < issues < 500]
+```
+
+| Open issues | Points |
+|---|---|
+| 0 | 0 |
+| 20 | 1 |
+| 60 | 3 |
+| 100 | 5 (maximum) |
+| 500 or more | 0 (excluded) |
+
+Repos with zero issues and repos with 500 or more issues both score 0. The upper bound prevents repositories with an overwhelming backlog from being rewarded.
+
+## License signal (up to 5 pts)
+
+Any repository with a license set on GitHub (`repo.license` is truthy) earns 5 pts. The specific license type is not evaluated.
+
+## Hidden gem bonus (up to 5 pts)
+
+The hidden gem bonus rewards under-the-radar projects that are actively maintained but not yet widely known:
+
+```text
+if (stars < 1000 AND monthsAgo < 6) score += 5
+```
+
+Both conditions must be true simultaneously. A repo with 999 stars pushed yesterday qualifies; a repo with 500 stars last pushed 7 months ago does not.
+
+## Query relevance signal (up to 20 pts)
+
+RepoHunt checks how many words from your search query appear in the repository's combined text field:
+
+```text
+combined = repo.name + " " + repo.description + " " + repo.topics.join(" ")
+```
+
+All text is lowercased before comparison. Each matching query word contributes 5 pts, capped at 20 pts:
+
+```text
+relevance_score = min(20, matchedWords × 5)
+```
+
+Four or more matching query words reach the maximum of 20 pts. Single-word queries can score at most 5 pts from this signal.
+
+<Note>
+Relevance is computed against your raw query text, not the full GitHub API query string that includes filter qualifiers like `language:Python`. Longer, more descriptive queries benefit more from this signal.
+</Note>
+
+## Score normalization
+
+Two normalization steps are applied at the end of `scoreRepo()`:
+
+1. **`Math.min(100, score)`** — clamps the raw sum to a maximum of 100.
+2. **`Math.round(...)`** — converts the floating-point sum to the nearest integer.
+
+The raw sum can theoretically exceed 100. For example, a repo with 10 k stars, pushed today, with a description, topics, a license, perfect relevance, and no fork can accumulate up to 110 pts before clamping. The cap ensures the displayed scale is always 0–100.
+
+## Grade thresholds
+
+The `scoreGrade(s)` function maps a numeric score to a letter grade and a CSS class:
+
+| Grade | Score range | Badge color | CSS class |
+|---|---|---|---|
+| **S** | ≥ 85 | Purple (#a99fff) | `score-s` |
+| **A** | 70–84 | Green (#2ecc71) | `score-a` |
+| **B** | 55–69 | Cyan (#00e5cc) | `score-b` |
+| **C** | 40–54 | Amber (#f0a500) | `score-c` |
+| **D** | < 40 | Red (#ff4d4d) | `score-d` |
+
+Grade boundaries are strict lower bounds. A score of exactly 70 is grade A; a score of 69 is grade B.
+
+## Source code
+
+### `scoreRepo()`
+
+```javascript
+function scoreRepo(repo, query) {
+  let score = 0;
+  const monthsAgo = (Date.now() - new Date(repo.pushed_at)) / (1000*60*60*24*30);
+  const stars = repo.stargazers_count;
+
+  // Stars (up to 40 pts)
+  score += Math.min(40, Math.log10(stars+1)*14);
+
+  // Recency (up to 25 pts)
+  if (monthsAgo < 1) score += 25; else if (monthsAgo < 3) score += 20;
+  else if (monthsAgo < 6) score += 15; else if (monthsAgo < 12) score += 8;
+  else if (monthsAgo < 24) score += 3;
+
+  // Description (up to 5 pts)
+  if (repo.description && repo.description.length > 20) score += 5;
+
+  // Topics (up to 5 pts)
+  if (repo.topics && repo.topics.length > 0) score += 5;
+
+  // Not a fork (up to 5 pts)
+  if (!repo.fork) score += 5;
+
+  // Open issues (up to 5 pts)
+  const issues = repo.open_issues_count || 0;
+  if (issues > 0 && issues < 500) score += Math.min(5, issues/20);
+
+  // License (up to 5 pts)
+  if (repo.license) score += 5;
+
+  // Hidden gem bonus (up to 5 pts)
+  if (stars < 1000 && monthsAgo < 6) score += 5;
+
+  // Query relevance (up to 20 pts)
+  const qw = query.toLowerCase().split(/\s+/);
+  const nd = ((repo.name||'')+' '+(repo.description||'')+' '+(repo.topics||[]).join(' ')).toLowerCase();
+  let rel = 0; qw.forEach(w => { if (nd.includes(w)) rel += 5; });
+  score += Math.min(20, rel);
+
+  return Math.round(Math.min(100, score));
+}
+```
+
+### `scoreGrade()`
+
+```javascript
+function scoreGrade(s) {
+  if (s >= 85) return {grade:'S', cls:'score-s'};
+  if (s >= 70) return {grade:'A', cls:'score-a'};
+  if (s >= 55) return {grade:'B', cls:'score-b'};
+  if (s >= 40) return {grade:'C', cls:'score-c'};
+  return          {grade:'D', cls:'score-d'};
+}
+```
+
+## What the score does not measure
+
+The Repo Score is deliberately limited to signals available from the GitHub Search API response. It does not account for:
+
+- **Code quality** — no static analysis or linting data is available.
+- **Test coverage** — no coverage data is available from the API.
+- **Documentation completeness** — only the presence of a description is checked, not a README, wiki, or docs site.
+- **Dependency health** — outdated or vulnerable dependencies are not evaluated.
+- **Contributor diversity** — number of unique contributors is not factored in.
+- **Download or usage statistics** — package registry stats (npm, PyPI, etc.) are not queried.
+- **Issue resolution rate** — only the raw open-issue count is used, not how quickly issues are closed.
+
+A high score means a repo presents well on public quality signals. It is not a guarantee of production suitability for any specific use case.
+
+<Tip>
+For a quick read on what the grades mean in practice, see the [repo scoring feature guide](/features/scoring).
+</Tip>
